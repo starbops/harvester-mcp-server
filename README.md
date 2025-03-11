@@ -1,10 +1,10 @@
 # Harvester MCP Server
 
-Model Context Protocol (MCP) server for Harvester HCI that enables Claude, Cursor, and other AI assistants to interact with Harvester clusters through the MCP protocol.
+Model Context Protocol (MCP) server for Harvester HCI that enables Claude Desktop, Cursor, and other AI assistants to interact with Harvester clusters through the MCP protocol.
 
 ## Overview
 
-Harvester MCP Server is a Go implementation of the [Model Context Protocol (MCP)](https://github.com/model-context-protocol/mcp) specifically designed for [Harvester HCI](https://github.com/harvester/harvester). It allows AI assistants like Claude and Cursor to perform CRUD operations on Harvester clusters, which are essentially Kubernetes clusters with Harvester-specific CRDs.
+Harvester MCP Server is a Go implementation of the [Model Context Protocol (MCP)](https://spec.modelcontextprotocol.io/specification/2024-11-05/) specifically designed for [Harvester HCI](https://github.com/harvester/harvester). It allows AI assistants like Claude Desktop and Cursor to perform CRUD operations on Harvester clusters, which are essentially Kubernetes clusters with Harvester-specific CRDs.
 
 ## Features
 
