@@ -3,10 +3,10 @@ package mcp
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	log "github.com/sirupsen/logrus"
 	"github.com/starbops/harvester-mcp-server/pkg/client"
 	"github.com/starbops/harvester-mcp-server/pkg/tools"
 )
@@ -55,7 +55,7 @@ func NewServer(cfg *Config) (*HarvesterMCPServer, error) {
 
 // ServeStdio starts the MCP server using stdio.
 func (s *HarvesterMCPServer) ServeStdio() error {
-	log.Println("Starting Harvester MCP server...")
+	log.Info("Starting Harvester MCP server...")
 	return server.ServeStdio(s.mcpServer)
 }
 

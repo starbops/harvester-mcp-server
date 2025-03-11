@@ -1,6 +1,6 @@
-FROM golang:1.21 AS builder
+FROM docker.io/library/golang:1.23-alpine AS builder
 
-WORKDIR /app
+WORKDIR /workspace
 
 # Copy go.mod and go.sum
 COPY go.mod go.sum ./
@@ -12,17 +12,17 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o harvester-mcp-server ./cmd/harvester-mcp-server
+RUN go build -o harvester-mcp-server ./cmd/harvester-mcp-server
 
 # Create a minimal runtime image
-FROM alpine:3.19
+FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates
 
 WORKDIR /app
 
 # Copy the binary from the builder stage
-COPY --from=builder /app/harvester-mcp-server .
+COPY --from=builder /workspace/harvester-mcp-server /app/harvester-mcp-server
 
 # Set the entry point
-ENTRYPOINT ["/app/harvester-mcp-server"] 
+ENTRYPOINT ["/app/harvester-mcp-server"]
