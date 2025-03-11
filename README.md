@@ -24,9 +24,15 @@ Harvester MCP Server is a Go implementation of the [Model Context Protocol (MCP)
   - Volumes: List
   - Networks: List
 
+- **Enhanced User Experience**:
+  - Human-readable formatted outputs for all resources
+  - Automatic grouping of resources by namespace or status
+  - Concise summaries with the most relevant information
+  - Detailed views for comprehensive resource inspection
+
 ## Requirements
 
-- Go 1.21+
+- Go 1.23+
 - Access to a Harvester cluster with a valid kubeconfig
 
 ## Installation
@@ -69,6 +75,7 @@ Usage:
 Flags:
   -h, --help                help for harvester-mcp-server
       --kubeconfig string   Path to the kubeconfig file (default is $KUBECONFIG or $HOME/.kube/config)
+      --log-level string    Log level (debug, info, warn, error, fatal, panic) (default "info")
 ```
 
 ### Examples
@@ -86,6 +93,11 @@ export KUBECONFIG=$HOME/config.yaml
 harvester-mcp-server
 ```
 
+With debug logging:
+```bash
+harvester-mcp-server --log-level=debug
+```
+
 ## Usage with Claude Desktop
 
 1. Install Claude Desktop
@@ -97,7 +109,7 @@ harvester-mcp-server
   "mcpServers": {
     "harvester": {
       "command": "/path/to/harvester-mcp-server",
-      "args": ["--kubeconfig", "/path/to/kubeconfig.yaml"]
+      "args": ["--kubeconfig", "/path/to/kubeconfig.yaml", "--log-level", "info"]
     }
   }
 }
@@ -105,6 +117,16 @@ harvester-mcp-server
 
 4. Restart Claude Desktop
 5. The Harvester MCP tools should now be available to Claude
+
+## Example Queries for Claude Desktop
+
+Once your Harvester MCP server is configured in Claude Desktop, you can ask questions like:
+
+- "How many nodes are in my Harvester cluster?"
+- "List all pods in the cattle-system namespace"
+- "Show me the details of the pod named rancher-789c976c6-xbvmd in cattle-system namespace"
+- "List all virtual machines in the default namespace"
+- "What services are running in the harvester-system namespace?"
 
 ## Development
 
@@ -122,9 +144,11 @@ To add a new tool:
 
 1. Create a new function in the appropriate file under `pkg/tools`
 2. Register the tool in `pkg/mcp/server.go` in the `registerTools` method
+3. Implement a formatting function to provide human-readable output
 
 ## License
 
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 

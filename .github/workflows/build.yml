@@ -1,0 +1,73 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+  # Enable manual trigger for testing purposes
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build and Upload
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required for uploading to GitHub releases
+    
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          check-latest: true
+          cache: true
+      
+      - name: Build for Linux (amd64)
+        run: |
+          mkdir -p bin
+          GOOS=linux GOARCH=amd64 go build -o bin/harvester-mcp-server-linux-amd64 ./cmd/harvester-mcp-server
+          chmod +x bin/harvester-mcp-server-linux-amd64
+      
+      - name: Build for Linux (arm64)
+        run: |
+          GOOS=linux GOARCH=arm64 go build -o bin/harvester-mcp-server-linux-arm64 ./cmd/harvester-mcp-server
+          chmod +x bin/harvester-mcp-server-linux-arm64
+      
+      - name: Build for macOS (amd64)
+        run: |
+          GOOS=darwin GOARCH=amd64 go build -o bin/harvester-mcp-server-darwin-amd64 ./cmd/harvester-mcp-server
+          chmod +x bin/harvester-mcp-server-darwin-amd64
+      
+      - name: Build for macOS (arm64)
+        run: |
+          GOOS=darwin GOARCH=arm64 go build -o bin/harvester-mcp-server-darwin-arm64 ./cmd/harvester-mcp-server
+          chmod +x bin/harvester-mcp-server-darwin-arm64
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: harvester-mcp-server-binaries
+          path: bin/
+          retention-days: 7
+      
+      - name: Create release tag
+        id: tag
+        run: |
+          TIMESTAMP=$(date +'%Y%m%d%H%M%S')
+          echo "tag=release-${TIMESTAMP}" >> $GITHUB_OUTPUT
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Automatic Build ${{ steps.tag.outputs.tag }}
+          tag_name: ${{ steps.tag.outputs.tag }}
+          files: |
+            bin/harvester-mcp-server-linux-amd64
+            bin/harvester-mcp-server-linux-arm64
+            bin/harvester-mcp-server-darwin-amd64
+            bin/harvester-mcp-server-darwin-arm64
+          generate_release_notes: true
+          prerelease: true
+          fail_on_unmatched_files: true 
