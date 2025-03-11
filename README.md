@@ -37,10 +37,10 @@ git clone https://github.com/starbops/harvester-mcp-server.git
 cd harvester-mcp-server
 
 # Build
-go build -o harvester-mcp-server cmd/harvester-mcp-server/main.go
+make build
 
 # Run
-./harvester-mcp-server
+./bin/harvester-mcp-server
 ```
 
 ### Using Go Install
@@ -51,7 +51,35 @@ go install github.com/starbops/harvester-mcp-server/cmd/harvester-mcp-server@lat
 
 ## Configuration
 
-The server automatically uses the kubeconfig file located at `~/.kube/config` or uses in-cluster configuration if deployed inside a Kubernetes cluster.
+The server automatically looks for Kubernetes configuration in the following order:
+1. In-cluster configuration (if running inside a Kubernetes cluster)
+2. Path specified by the `--kubeconfig` flag
+3. Path specified by the `KUBECONFIG` environment variable
+4. Default location at `~/.kube/config`
+
+### Command-Line Flags
+
+```
+Usage:
+  harvester-mcp-server [flags]
+
+Flags:
+  -h, --help                help for harvester-mcp-server
+      --kubeconfig string   Path to the kubeconfig file (default is $KUBECONFIG or $HOME/.kube/config)
+```
+
+### Examples
+
+Using a specific kubeconfig file:
+```bash
+harvester-mcp-server --kubeconfig=/path/to/kubeconfig.yaml
+```
+
+Using the KUBECONFIG environment variable:
+```bash
+export KUBECONFIG=$HOME/config.yaml
+harvester-mcp-server
+```
 
 ## Usage with Claude Desktop
 
@@ -63,7 +91,8 @@ The server automatically uses the kubeconfig file located at `~/.kube/config` or
 {
   "mcpServers": {
     "harvester": {
-      "command": "/path/to/harvester-mcp-server"
+      "command": "/path/to/harvester-mcp-server",
+      "args": ["--kubeconfig=/path/to/kubeconfig.yaml"]
     }
   }
 }
@@ -78,6 +107,7 @@ The server automatically uses the kubeconfig file located at `~/.kube/config` or
 
 - `cmd/harvester-mcp-server`: Main application entry point
 - `pkg/client`: Kubernetes client implementation
+- `pkg/cmd`: CLI commands implementation using Cobra
 - `pkg/mcp`: MCP server implementation
 - `pkg/tools`: Tool implementations for interacting with Harvester resources
 
@@ -97,3 +127,4 @@ MIT License
 - [Harvester HCI](https://github.com/harvester/harvester) - The foundation for this project
 - [mark3labs/mcp-go](https://github.com/mark3labs/mcp-go) - The Go SDK for Model Context Protocol
 - [manusa/kubernetes-mcp-server](https://github.com/manusa/kubernetes-mcp-server) - Reference implementation for Kubernetes MCP server
+- [spf13/cobra](https://github.com/spf13/cobra) - CLI command framework

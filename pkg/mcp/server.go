@@ -11,6 +11,12 @@ import (
 	"github.com/starbops/harvester-mcp-server/pkg/tools"
 )
 
+// Config represents the configuration for the Harvester MCP server.
+type Config struct {
+	// KubeConfigPath is the path to the kubeconfig file.
+	KubeConfigPath string
+}
+
 // HarvesterMCPServer represents the MCP server for Harvester HCI.
 type HarvesterMCPServer struct {
 	mcpServer *server.MCPServer
@@ -18,8 +24,14 @@ type HarvesterMCPServer struct {
 }
 
 // NewServer creates a new Harvester MCP server.
-func NewServer() (*HarvesterMCPServer, error) {
-	k8sClient, err := client.NewClient()
+func NewServer(cfg *Config) (*HarvesterMCPServer, error) {
+	// Create client configuration
+	clientCfg := &client.Config{
+		KubeConfigPath: cfg.KubeConfigPath,
+	}
+
+	// Create Kubernetes client
+	k8sClient, err := client.NewClient(clientCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}

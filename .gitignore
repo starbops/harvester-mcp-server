@@ -36,3 +36,4 @@ Thumbs.db
 
 # Build artifacts
 bin/
+harvester-mcp-server
