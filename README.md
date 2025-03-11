@@ -9,6 +9,7 @@ Harvester MCP Server is a Go implementation of the [Model Context Protocol (MCP)
 ## Features
 
 - **Kubernetes Core Resources**:
+
   - Pods: List, Get, Delete
   - Deployments: List, Get
   - Services: List, Get
@@ -17,6 +18,7 @@ Harvester MCP Server is a Go implementation of the [Model Context Protocol (MCP)
   - Custom Resource Definitions (CRDs): List
 
 - **Harvester-Specific Resources**:
+
   - Virtual Machines: List, Get
   - Images: List
   - Volumes: List
@@ -52,6 +54,7 @@ go install github.com/starbops/harvester-mcp-server/cmd/harvester-mcp-server@lat
 ## Configuration
 
 The server automatically looks for Kubernetes configuration in the following order:
+
 1. In-cluster configuration (if running inside a Kubernetes cluster)
 2. Path specified by the `--kubeconfig` flag
 3. Path specified by the `KUBECONFIG` environment variable
@@ -71,11 +74,13 @@ Flags:
 ### Examples
 
 Using a specific kubeconfig file:
+
 ```bash
 harvester-mcp-server --kubeconfig=/path/to/kubeconfig.yaml
 ```
 
 Using the KUBECONFIG environment variable:
+
 ```bash
 export KUBECONFIG=$HOME/config.yaml
 harvester-mcp-server
@@ -84,7 +89,7 @@ harvester-mcp-server
 ## Usage with Claude Desktop
 
 1. Install Claude Desktop
-2. Open Claude Desktop configuration file (`~/.config/claude-desktop/claude_desktop_config.json` or similar)
+2. Open Claude Desktop configuration file (`~/Library/Application\ Support/Claude/claude_desktop_config.json` or similar)
 3. Add the Harvester MCP server to the `mcpServers` section:
 
 ```json
@@ -92,7 +97,7 @@ harvester-mcp-server
   "mcpServers": {
     "harvester": {
       "command": "/path/to/harvester-mcp-server",
-      "args": ["--kubeconfig=/path/to/kubeconfig.yaml"]
+      "args": ["--kubeconfig", "/path/to/kubeconfig.yaml"]
     }
   }
 }
@@ -120,11 +125,9 @@ To add a new tool:
 
 ## License
 
-MIT License
 
 ## Acknowledgments
 
 - [Harvester HCI](https://github.com/harvester/harvester) - The foundation for this project
 - [mark3labs/mcp-go](https://github.com/mark3labs/mcp-go) - The Go SDK for Model Context Protocol
 - [manusa/kubernetes-mcp-server](https://github.com/manusa/kubernetes-mcp-server) - Reference implementation for Kubernetes MCP server
-- [spf13/cobra](https://github.com/spf13/cobra) - CLI command framework
