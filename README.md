@@ -6,6 +6,49 @@ Model Context Protocol (MCP) server for Harvester HCI that enables Claude Deskto
 
 Harvester MCP Server is a Go implementation of the [Model Context Protocol (MCP)](https://spec.modelcontextprotocol.io/specification/2024-11-05/) specifically designed for [Harvester HCI](https://github.com/harvester/harvester). It allows AI assistants like Claude Desktop and Cursor to perform CRUD operations on Harvester clusters, which are essentially Kubernetes clusters with Harvester-specific CRDs.
 
+## Workflow
+
+The following diagram illustrates how Harvester MCP Server bridges the gap between AI assistants and Harvester clusters:
+
+```mermaid
+graph LR;
+    subgraph "AI Assistants"
+        A[Claude Desktop] --> C[MCP Client];
+        B[Cursor IDE] --> C;
+    end
+    
+    subgraph "Harvester MCP Server"
+        C --> D[MCP Server];
+        D --> E[Resource Handler];
+        E --> F[Formatter Registry];
+        F -->|Get Formatter| G[Core Resource Formatters];
+        F -->|Get Formatter| H[Harvester Resource Formatters];
+    end
+    
+    subgraph "Kubernetes / Harvester"
+        G --> I[Kubernetes API];
+        H --> I;
+        I --> J[Harvester Cluster];
+    end
+    
+    style A fill:#f9f,stroke:#333,stroke-width:2px;
+    style B fill:#f9f,stroke:#333,stroke-width:2px;
+    style D fill:#bbf,stroke:#333,stroke-width:2px;
+    style J fill:#bfb,stroke:#333,stroke-width:2px;
+```
+
+### How It Works
+
+1. **LLM Integration**: AI assistants like Claude Desktop and Cursor connect to Harvester MCP Server via the MCP protocol.
+2. **Request Processing**: The MCP Server receives natural language requests from the AI assistants and translates them into specific Kubernetes operations.
+3. **Resource Handling**: The Resource Handler identifies the resource type and operation being requested.
+4. **Formatter Selection**: The Formatter Registry selects the appropriate formatter for the resource type.
+5. **API Interaction**: The server interacts with the Kubernetes API of the Harvester cluster.
+6. **Response Formatting**: Results are formatted into human-readable text optimized for LLM consumption.
+7. **User Presentation**: Formatted responses are returned to the AI assistant to present to the user.
+
+This architecture enables AI assistants to interact with Harvester clusters through natural language, making complex Kubernetes operations more accessible to users.
+
 ## Features
 
 - **Kubernetes Core Resources**:
