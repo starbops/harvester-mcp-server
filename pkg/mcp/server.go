@@ -8,7 +8,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	log "github.com/sirupsen/logrus"
 	"github.com/starbops/harvester-mcp-server/pkg/client"
-	"github.com/starbops/harvester-mcp-server/pkg/tools"
+	"github.com/starbops/harvester-mcp-server/pkg/kubernetes"
 )
 
 // Config represents the configuration for the Harvester MCP server.
@@ -19,8 +19,9 @@ type Config struct {
 
 // HarvesterMCPServer represents the MCP server for Harvester HCI.
 type HarvesterMCPServer struct {
-	mcpServer *server.MCPServer
-	k8sClient *client.Client
+	mcpServer       *server.MCPServer
+	k8sClient       *client.Client
+	resourceHandler *kubernetes.ResourceHandler
 }
 
 // NewServer creates a new Harvester MCP server.
@@ -36,6 +37,12 @@ func NewServer(cfg *Config) (*HarvesterMCPServer, error) {
 		return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
 
+	// Create resource handler
+	resourceHandler, err := kubernetes.NewResourceHandler(k8sClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create resource handler: %w", err)
+	}
+
 	// Create a new MCP server
 	mcpServer := server.NewMCPServer(
 		"Harvester MCP Server",
@@ -43,8 +50,9 @@ func NewServer(cfg *Config) (*HarvesterMCPServer, error) {
 	)
 
 	harvesterServer := &HarvesterMCPServer{
-		mcpServer: mcpServer,
-		k8sClient: k8sClient,
+		mcpServer:       mcpServer,
+		k8sClient:       k8sClient,
+		resourceHandler: resourceHandler,
 	}
 
 	// Register tools
@@ -87,7 +95,18 @@ func (s *HarvesterMCPServer) registerKubernetesPodTools() {
 		),
 	)
 	s.mcpServer.AddTool(listPodsTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return tools.ListPods(ctx, s.k8sClient, req)
+		namespace, _ := req.Params.Arguments["namespace"].(string)
+
+		// Use the unified resource handler
+		gvr := kubernetes.ResourceTypeToGVR[kubernetes.ResourceTypePods]
+		list, err := s.resourceHandler.ListResources(ctx, gvr, namespace)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to list pods: %v", err)), nil
+		}
+
+		// Format the list using the resource formatter
+		formatted := s.resourceHandler.FormatResourceList(list, gvr)
+		return mcp.NewToolResultText(formatted), nil
 	})
 
 	// Get pod tool
@@ -104,7 +123,26 @@ func (s *HarvesterMCPServer) registerKubernetesPodTools() {
 		),
 	)
 	s.mcpServer.AddTool(getPodTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return tools.GetPod(ctx, s.k8sClient, req)
+		namespace, ok := req.Params.Arguments["namespace"].(string)
+		if !ok || namespace == "" {
+			return mcp.NewToolResultError("Namespace is required"), nil
+		}
+
+		name, ok := req.Params.Arguments["name"].(string)
+		if !ok || name == "" {
+			return mcp.NewToolResultError("Pod name is required"), nil
+		}
+
+		// Use the unified resource handler
+		gvr := kubernetes.ResourceTypeToGVR[kubernetes.ResourceTypePod]
+		resource, err := s.resourceHandler.GetResource(ctx, gvr, namespace, name)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to get pod %s in namespace %s: %v", name, namespace, err)), nil
+		}
+
+		// Format the resource using the resource formatter
+		formatted := s.resourceHandler.FormatResource(resource, gvr)
+		return mcp.NewToolResultText(formatted), nil
 	})
 
 	// Delete pod tool
@@ -121,7 +159,24 @@ func (s *HarvesterMCPServer) registerKubernetesPodTools() {
 		),
 	)
 	s.mcpServer.AddTool(deletePodTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return tools.DeletePod(ctx, s.k8sClient, req)
+		namespace, ok := req.Params.Arguments["namespace"].(string)
+		if !ok || namespace == "" {
+			return mcp.NewToolResultError("Namespace is required"), nil
+		}
+
+		name, ok := req.Params.Arguments["name"].(string)
+		if !ok || name == "" {
+			return mcp.NewToolResultError("Pod name is required"), nil
+		}
+
+		// Use the unified resource handler
+		gvr := kubernetes.ResourceTypeToGVR[kubernetes.ResourceTypePod]
+		err := s.resourceHandler.DeleteResource(ctx, gvr, namespace, name)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to delete pod %s in namespace %s: %v", name, namespace, err)), nil
+		}
+
+		return mcp.NewToolResultText(fmt.Sprintf("Pod %s in namespace %s deleted successfully", name, namespace)), nil
 	})
 }
 
@@ -136,7 +191,18 @@ func (s *HarvesterMCPServer) registerKubernetesDeploymentTools() {
 		),
 	)
 	s.mcpServer.AddTool(listDeploymentsTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return tools.ListDeployments(ctx, s.k8sClient, req)
+		namespace, _ := req.Params.Arguments["namespace"].(string)
+
+		// Use the unified resource handler
+		gvr := kubernetes.ResourceTypeToGVR[kubernetes.ResourceTypeDeployments]
+		list, err := s.resourceHandler.ListResources(ctx, gvr, namespace)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to list deployments: %v", err)), nil
+		}
+
+		// Format the list using the resource formatter
+		formatted := s.resourceHandler.FormatResourceList(list, gvr)
+		return mcp.NewToolResultText(formatted), nil
 	})
 
 	// Get deployment tool
@@ -153,7 +219,26 @@ func (s *HarvesterMCPServer) registerKubernetesDeploymentTools() {
 		),
 	)
 	s.mcpServer.AddTool(getDeploymentTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return tools.GetDeployment(ctx, s.k8sClient, req)
+		namespace, ok := req.Params.Arguments["namespace"].(string)
+		if !ok || namespace == "" {
+			return mcp.NewToolResultError("Namespace is required"), nil
+		}
+
+		name, ok := req.Params.Arguments["name"].(string)
+		if !ok || name == "" {
+			return mcp.NewToolResultError("Deployment name is required"), nil
+		}
+
+		// Use the unified resource handler
+		gvr := kubernetes.ResourceTypeToGVR[kubernetes.ResourceTypeDeployment]
+		resource, err := s.resourceHandler.GetResource(ctx, gvr, namespace, name)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to get deployment %s in namespace %s: %v", name, namespace, err)), nil
+		}
+
+		// Format the resource using the resource formatter
+		formatted := s.resourceHandler.FormatResource(resource, gvr)
+		return mcp.NewToolResultText(formatted), nil
 	})
 }
 
@@ -168,7 +253,18 @@ func (s *HarvesterMCPServer) registerKubernetesServiceTools() {
 		),
 	)
 	s.mcpServer.AddTool(listServicesTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return tools.ListServices(ctx, s.k8sClient, req)
+		namespace, _ := req.Params.Arguments["namespace"].(string)
+
+		// Use the unified resource handler
+		gvr := kubernetes.ResourceTypeToGVR[kubernetes.ResourceTypeServices]
+		list, err := s.resourceHandler.ListResources(ctx, gvr, namespace)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to list services: %v", err)), nil
+		}
+
+		// Format the list using the resource formatter
+		formatted := s.resourceHandler.FormatResourceList(list, gvr)
+		return mcp.NewToolResultText(formatted), nil
 	})
 
 	// Get service tool
@@ -185,7 +281,26 @@ func (s *HarvesterMCPServer) registerKubernetesServiceTools() {
 		),
 	)
 	s.mcpServer.AddTool(getServiceTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return tools.GetService(ctx, s.k8sClient, req)
+		namespace, ok := req.Params.Arguments["namespace"].(string)
+		if !ok || namespace == "" {
+			return mcp.NewToolResultError("Namespace is required"), nil
+		}
+
+		name, ok := req.Params.Arguments["name"].(string)
+		if !ok || name == "" {
+			return mcp.NewToolResultError("Service name is required"), nil
+		}
+
+		// Use the unified resource handler
+		gvr := kubernetes.ResourceTypeToGVR[kubernetes.ResourceTypeService]
+		resource, err := s.resourceHandler.GetResource(ctx, gvr, namespace, name)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to get service %s in namespace %s: %v", name, namespace, err)), nil
+		}
+
+		// Format the resource using the resource formatter
+		formatted := s.resourceHandler.FormatResource(resource, gvr)
+		return mcp.NewToolResultText(formatted), nil
 	})
 }
 
@@ -197,7 +312,16 @@ func (s *HarvesterMCPServer) registerKubernetesNamespaceTools() {
 		mcp.WithDescription("List namespaces in the Harvester cluster"),
 	)
 	s.mcpServer.AddTool(listNamespacesTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return tools.ListNamespaces(ctx, s.k8sClient, req)
+		// Use the unified resource handler
+		gvr := kubernetes.ResourceTypeToGVR[kubernetes.ResourceTypeNamespaces]
+		list, err := s.resourceHandler.ListResources(ctx, gvr, "")
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to list namespaces: %v", err)), nil
+		}
+
+		// Format the list using the resource formatter
+		formatted := s.resourceHandler.FormatResourceList(list, gvr)
+		return mcp.NewToolResultText(formatted), nil
 	})
 
 	// Get namespace tool
@@ -210,7 +334,21 @@ func (s *HarvesterMCPServer) registerKubernetesNamespaceTools() {
 		),
 	)
 	s.mcpServer.AddTool(getNamespaceTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return tools.GetNamespace(ctx, s.k8sClient, req)
+		name, ok := req.Params.Arguments["name"].(string)
+		if !ok || name == "" {
+			return mcp.NewToolResultError("Namespace name is required"), nil
+		}
+
+		// Use the unified resource handler
+		gvr := kubernetes.ResourceTypeToGVR[kubernetes.ResourceTypeNamespace]
+		resource, err := s.resourceHandler.GetResource(ctx, gvr, "", name)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to get namespace %s: %v", name, err)), nil
+		}
+
+		// Format the resource using the resource formatter
+		formatted := s.resourceHandler.FormatResource(resource, gvr)
+		return mcp.NewToolResultText(formatted), nil
 	})
 }
 
@@ -222,7 +360,16 @@ func (s *HarvesterMCPServer) registerKubernetesNodeTools() {
 		mcp.WithDescription("List nodes in the Harvester cluster"),
 	)
 	s.mcpServer.AddTool(listNodesTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return tools.ListNodes(ctx, s.k8sClient, req)
+		// Use the unified resource handler
+		gvr := kubernetes.ResourceTypeToGVR[kubernetes.ResourceTypeNodes]
+		list, err := s.resourceHandler.ListResources(ctx, gvr, "")
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to list nodes: %v", err)), nil
+		}
+
+		// Format the list using the resource formatter
+		formatted := s.resourceHandler.FormatResourceList(list, gvr)
+		return mcp.NewToolResultText(formatted), nil
 	})
 
 	// Get node tool
@@ -235,7 +382,21 @@ func (s *HarvesterMCPServer) registerKubernetesNodeTools() {
 		),
 	)
 	s.mcpServer.AddTool(getNodeTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return tools.GetNode(ctx, s.k8sClient, req)
+		name, ok := req.Params.Arguments["name"].(string)
+		if !ok || name == "" {
+			return mcp.NewToolResultError("Node name is required"), nil
+		}
+
+		// Use the unified resource handler
+		gvr := kubernetes.ResourceTypeToGVR[kubernetes.ResourceTypeNode]
+		resource, err := s.resourceHandler.GetResource(ctx, gvr, "", name)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to get node %s: %v", name, err)), nil
+		}
+
+		// Format the resource using the resource formatter
+		formatted := s.resourceHandler.FormatResource(resource, gvr)
+		return mcp.NewToolResultText(formatted), nil
 	})
 }
 
@@ -247,7 +408,16 @@ func (s *HarvesterMCPServer) registerKubernetesCRDTools() {
 		mcp.WithDescription("List Custom Resource Definitions in the Harvester cluster"),
 	)
 	s.mcpServer.AddTool(listCRDsTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return tools.ListCRDs(ctx, s.k8sClient, req)
+		// Use the unified resource handler
+		gvr := kubernetes.ResourceTypeToGVR[kubernetes.ResourceTypeCRDs]
+		list, err := s.resourceHandler.ListResources(ctx, gvr, "")
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to list CRDs: %v", err)), nil
+		}
+
+		// Format the list using the resource formatter
+		formatted := s.resourceHandler.FormatResourceList(list, gvr)
+		return mcp.NewToolResultText(formatted), nil
 	})
 }
 
@@ -262,7 +432,18 @@ func (s *HarvesterMCPServer) registerHarvesterVirtualMachineTools() {
 		),
 	)
 	s.mcpServer.AddTool(listVMsTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return tools.ListVirtualMachines(ctx, s.k8sClient, req)
+		namespace, _ := req.Params.Arguments["namespace"].(string)
+
+		// Use the unified resource handler
+		gvr := kubernetes.ResourceTypeToGVR[kubernetes.ResourceTypeVMs]
+		list, err := s.resourceHandler.ListResources(ctx, gvr, namespace)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to list VMs: %v", err)), nil
+		}
+
+		// Format the list using the resource formatter
+		formatted := s.resourceHandler.FormatResourceList(list, gvr)
+		return mcp.NewToolResultText(formatted), nil
 	})
 
 	// Get VM tool
@@ -279,7 +460,26 @@ func (s *HarvesterMCPServer) registerHarvesterVirtualMachineTools() {
 		),
 	)
 	s.mcpServer.AddTool(getVMTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return tools.GetVirtualMachine(ctx, s.k8sClient, req)
+		namespace, ok := req.Params.Arguments["namespace"].(string)
+		if !ok || namespace == "" {
+			return mcp.NewToolResultError("Namespace is required"), nil
+		}
+
+		name, ok := req.Params.Arguments["name"].(string)
+		if !ok || name == "" {
+			return mcp.NewToolResultError("VM name is required"), nil
+		}
+
+		// Use the unified resource handler
+		gvr := kubernetes.ResourceTypeToGVR[kubernetes.ResourceTypeVM]
+		resource, err := s.resourceHandler.GetResource(ctx, gvr, namespace, name)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to get VM %s in namespace %s: %v", name, namespace, err)), nil
+		}
+
+		// Format the resource using the resource formatter
+		formatted := s.resourceHandler.FormatResource(resource, gvr)
+		return mcp.NewToolResultText(formatted), nil
 	})
 }
 
@@ -294,7 +494,18 @@ func (s *HarvesterMCPServer) registerHarvesterImageTools() {
 		),
 	)
 	s.mcpServer.AddTool(listImagesTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return tools.ListImages(ctx, s.k8sClient, req)
+		namespace, _ := req.Params.Arguments["namespace"].(string)
+
+		// Use the unified resource handler
+		gvr := kubernetes.ResourceTypeToGVR[kubernetes.ResourceTypeImages]
+		list, err := s.resourceHandler.ListResources(ctx, gvr, namespace)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to list images: %v", err)), nil
+		}
+
+		// Format the list using the resource formatter
+		formatted := s.resourceHandler.FormatResourceList(list, gvr)
+		return mcp.NewToolResultText(formatted), nil
 	})
 }
 
@@ -309,7 +520,18 @@ func (s *HarvesterMCPServer) registerHarvesterVolumeTools() {
 		),
 	)
 	s.mcpServer.AddTool(listVolumesTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return tools.ListVolumes(ctx, s.k8sClient, req)
+		namespace, _ := req.Params.Arguments["namespace"].(string)
+
+		// Use the unified resource handler
+		gvr := kubernetes.ResourceTypeToGVR[kubernetes.ResourceTypeVolumes]
+		list, err := s.resourceHandler.ListResources(ctx, gvr, namespace)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to list volumes: %v", err)), nil
+		}
+
+		// Format the list using the resource formatter
+		formatted := s.resourceHandler.FormatResourceList(list, gvr)
+		return mcp.NewToolResultText(formatted), nil
 	})
 }
 
@@ -324,6 +546,17 @@ func (s *HarvesterMCPServer) registerHarvesterNetworkTools() {
 		),
 	)
 	s.mcpServer.AddTool(listNetworksTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return tools.ListNetworks(ctx, s.k8sClient, req)
+		namespace, _ := req.Params.Arguments["namespace"].(string)
+
+		// Use the unified resource handler
+		gvr := kubernetes.ResourceTypeToGVR[kubernetes.ResourceTypeNetworks]
+		list, err := s.resourceHandler.ListResources(ctx, gvr, namespace)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to list networks: %v", err)), nil
+		}
+
+		// Format the list using the resource formatter
+		formatted := s.resourceHandler.FormatResourceList(list, gvr)
+		return mcp.NewToolResultText(formatted), nil
 	})
 }

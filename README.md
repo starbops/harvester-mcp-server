@@ -136,15 +136,41 @@ Once your Harvester MCP server is configured in Claude Desktop, you can ask ques
 - `pkg/client`: Kubernetes client implementation
 - `pkg/cmd`: CLI commands implementation using Cobra
 - `pkg/mcp`: MCP server implementation
-- `pkg/tools`: Tool implementations for interacting with Harvester resources
+- `pkg/kubernetes`: Unified resource handlers for Kubernetes resources
+- `pkg/tools`: Legacy tool implementations for interacting with Harvester resources
+
+### Resource Handling
+
+The project uses a unified approach to handle Kubernetes resources:
+
+1. The `pkg/kubernetes/resources.go` file contains a `ResourceHandler` that provides common operations for all resource types:
+   - Listing resources with proper namespace handling
+   - Getting resource details by name
+   - Creating and updating resources
+   - Deleting resources
+
+2. The `pkg/kubernetes/formatters*.go` files contain formatters for different resource types:
+   - Each formatter converts raw Kubernetes objects into human-readable text
+   - Resource-specific details are extracted and formatted in a consistent way
+   - Custom formatters exist for both standard Kubernetes resources and Harvester-specific resources
+
+3. The `pkg/kubernetes/types.go` file maps friendly resource type names to Kubernetes GroupVersionResource objects:
+   - Makes it easy to refer to resources by simple names in code
+   - Centralizes resource type definitions
 
 ### Adding New Tools
 
 To add a new tool:
 
-1. Create a new function in the appropriate file under `pkg/tools`
-2. Register the tool in `pkg/mcp/server.go` in the `registerTools` method
-3. Implement a formatting function to provide human-readable output
+1. If it's a new resource type, add it to `pkg/kubernetes/types.go`
+2. Implement formatters for the resource in one of the formatter files
+3. Register the tool in `pkg/mcp/server.go` in the `registerTools` method using the unified resource handler
+
+### Formatting Functions
+
+Each resource type has two formatting functions:
+1. `formatXList` - Formats a list of resources with concise information, grouped by namespace
+2. `formatX` - Formats a single resource with detailed information
 
 ## License
 
